@@ -1,0 +1,166 @@
+---
+title: "Digit Recognition Algorithm"
+author: "Ergin Sarikaya"
+date: "September 7, 2016"
+output: html_document
+runtime: shiny
+---
+
+
+# PURPOSE:
+## This study aims to analyze the digit recognition dataset provided by Kaggle.com and create an algorithm that can detect hand-written number digits.
+
+# DATA STRUCTURE:
+```{r setup, include=FALSE, cache=TRUE}
+
+#Read the downloaded hand written digit train data
+fileLocation <- setwd("../Digit Recognizer")
+baseData <- as.data.frame(read.csv(file=paste0(fileLocation,"/train.csv"),header=TRUE))
+```
+
+The data structure is as follows:
+```{r setup, include=FALSE, cache=TRUE}
+library("dplyr")
+summary(baseData)
+glimpse(baseData)
+```
+
+There are 42 thousand picture recoreded as rows in the train data set. There exists 784 pixels in each row of the data and each pixel has a translated number value that reflects the content in the picture pixel. However there seems to be a lot of data that has very few values or very few variatios. In the next section in the data preprocessing part, I will try to focus on eliminating the pixel readings that do not vary much.
+
+# DATA PREPROCESSING:
+
+## Eliminate features that do not vary significantly
+
+For variables that do not vary much, it does not make sense to include them as 
+potential feature candidates in the algorithm. That is why below given code is used to detect and eliminate these variables.
+
+```{r setup, include=FALSE, echo=FALSE}
+library("caret")
+nzv <- nearZeroVar(baseData)
+filteredDescr <- baseData[, -nzv]
+dim(filteredDescr)
+```
+
+As a result of removal of near zero variance features, there is now 253 features remaining from the 784 features.
+
+## Identify the Correlated Predictors
+
+It also does not make sense to use all the columns that are almost identical to each other. In order to simplyfy the dataset these columns will be detected and only one column will be left behind for each closely related column set.
+
+```{r setup, include=FALSE, echo=FALSE}
+# comboInfo <- findLinearCombos(filteredDescr)
+# filteredDescr <- filteredDescr[, -comboInfo$remove]
+# dim(filteredDescr)
+```
+
+Via removal of the linearly dependent variable, there remains 206 variables. This is a major reduction of feature dimension - from 784 to 206.
+
+Now we can apply neural networks algorithm to train the handwritten digit.
+
+# MACHINE LEARNING ALGORITHM
+
+## DATA SPLITTING
+
+The function createDataPartition can be used to create balanced splits of the data. The created data split is 60/40% and that will enable validation of the generated algorithm.
+
+```{r setup, include=FALSE, echo=FALSE}
+set.seed(3456)
+trainIndex <- createDataPartition(filteredDescr$label, p = .6, 
+                                  list = FALSE, 
+                                  times = 1)
+dataTrain <- filteredDescr[ trainIndex,]
+dataTest  <- filteredDescr[-trainIndex,]
+```
+
+
+## ALGORITHM RUN
+
+First the control parameters are set for the algorithm.
+
+```{r setup, include=FALSE, echo=FALSE}
+my.grid <- expand.grid(.decay = 0.5,.size = c(5))
+# fitControl <- trainControl(## 10-fold CV
+#                            method = "repeatedcv",
+#                            number = 10,
+#                            ## repeated ten times
+#                            repeats = 10,
+#                            verboseIter = TRUE,
+#                            returnData = TRUE,
+#                            classProbs = TRUE,
+#                            ## Evaluate performance using 
+#                            ## the following function
+#                            summaryFunction = twoClassSummary,
+#                            size = 10,
+#                            decay = 0.1)
+```
+
+Then, the neural network algorithm is applied to train the data.
+
+
+```{r setup, include=FALSE, echo=FALSE}
+set.seed(10)
+features <- colnames(dataTrain[,-which(colnames(dataTrain)=="label")])
+modelFit <- train(x=as.matrix(dataTrain[,features]) , y = dataTrain$label,method = "nnet", maxit = 100, tuneGrid = my.grid, trace = T, linout = 1, MaxNWts = 3000)
+save(modelFit,file = "modelFit.rda")
+```
+
+Let's p-lot the neural network
+```{r, echo=FALSE}
+library(devtools)
+source_url('https://gist.githubusercontent.com/fawda123/7471137/raw/466c1474d0a505ff044412703516c34f1a4684a5/nnet_plot_update.r')
+ 
+#plot each model
+plot.nnet(modelFit1)
+
+
+```
+
+
+
+This R Markdown document is made interactive using Shiny. Unlike the more traditional workflow of creating static reports, you can now create documents that allow your readers to change the assumptions underlying your analysis and see the results immediately. 
+
+To learn more, see [Interactive Documents](http://rmarkdown.rstudio.com/authoring_shiny.html).
+
+## Inputs and Outputs
+
+You can embed Shiny inputs and outputs in your document. Outputs are automatically updated whenever inputs change.  This demonstrates how a standard R plot can be made interactive by wrapping it in the Shiny `renderPlot` function. The `selectInput` and `sliderInput` functions create the input widgets used to drive the plot.
+
+```{r eruptions, echo=FALSE}
+inputPanel(
+  selectInput("n_breaks", label = "Number of bins:",
+              choices = c(10, 20, 35, 50), selected = 20),
+  
+  sliderInput("bw_adjust", label = "Bandwidth adjustment:",
+              min = 0.2, max = 2, value = 1, step = 0.2)
+)
+
+renderPlot({
+  hist(faithful$eruptions, probability = TRUE, breaks = as.numeric(input$n_breaks),
+       xlab = "Duration (minutes)", main = "Geyser eruption duration")
+  
+  dens <- density(faithful$eruptions, adjust = input$bw_adjust)
+  lines(dens, col = "blue")
+})
+```
+
+## Embedded Application
+
+It's also possible to embed an entire Shiny application within an R Markdown document using the `shinyAppDir` function. This example embeds a Shiny application located in another directory:
+
+```{r tabsets, echo=FALSE}
+shinyAppDir(
+  system.file("examples/06_tabsets", package = "shiny"),
+  options = list(
+    width = "100%", height = 550
+  )
+)
+```
+
+Note the use of the `height` parameter to determine how much vertical space the embedded application should occupy.
+
+You can also use the `shinyApp` function to define an application inline rather then in an external directory.
+
+In all of R code chunks above the `echo = FALSE` attribute is used. This is to prevent the R code within the chunk from rendering in the document alongside the Shiny components.
+
+
+
