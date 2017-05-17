@@ -100,22 +100,6 @@ h2o.confusionMatrix(h2o_final_model)
 #Save ensemble model
 h2o.saveModel(h2o_final_model,file = "h2o_final_model.rda")
 
-#Run the models for the real submission test file
-h2o_y_test_deep<- h2o.predict(h2o_model_deeplearning, h2o_submission_test)
-h2o_y_test_rand <- h2o.predict(h2o_model_rand, h2o_submission_test)
-h2o_y_test_gbm <- h2o.predict(h2o_model_gbm, h2o_submission_test)
-h2o_y_test_naive <- h2o.predict(h2o_model_naiveBayes, h2o_submission_test)
-
-#convert them to normal R data frames
-df_y_test_gbm = as.data.frame(h2o_y_test_gbm)
-df_y_test_rand = as.data.frame(h2o_y_test_rand)
-df_y_test_naive = as.data.frame(h2o_y_test_naive)
-df_y_test_deep = as.data.frame(h2o_y_test_deep)
-
-#Combine the models and retrain
-h2o_predDF <- data.frame(df_y_test_gbm$predict,df_y_test_rand$predict,df_y_test_naive$predict,df_y_test_deep$predict)
-h2o_predDF = as.h2o(h2o_predDF)#convert back to H2o to use the h2o model
-
 #Run the ensemble model on the submission data
 submissionResults <- h2o.predict(h2o_final_model, h2o_predDF)
 
